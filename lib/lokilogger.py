@@ -13,6 +13,7 @@ import rfc5424logging
 import logging
 from logging import handlers
 import socket
+import subprocess
 
 __version__ = '0.51.1'
 
@@ -36,10 +37,11 @@ class LokiLogger:
     messagecount = 0
     only_relevant = False
     remote_logging = False
+    local_logging = False
     debug = False
     linesep = "\n"
 
-    def __init__(self, no_log_file, log_file, hostname, remote_host, remote_port, syslog_tcp, csv, only_relevant, debug, platform, caller, customformatter=None):
+    def __init__(self, no_log_file, log_file, hostname, remote_host, remote_port, syslog_tcp, csv, only_relevant, debug, local_logging, platform, caller, customformatter=None):
         self.version = __version__
         self.no_log_file = no_log_file
         self.log_file = log_file
@@ -47,6 +49,7 @@ class LokiLogger:
         self.csv = csv
         self.only_relevant = only_relevant
         self.debug = debug
+        self.local_logging = local_logging
         self.caller = caller
         self.CustomFormatter = customformatter
         if "windows" in platform.lower():
@@ -108,11 +111,21 @@ class LokiLogger:
         if self.remote_logging:
             self.log_to_remotesys(message, mes_type, module)
 
+        # to syslog or event viewer
+        if self.local_logging:
+            self.log_to_local(message, mes_type, module)
+
     def Format(self, type, message, *args):
         if not self.CustomFormatter:
             return message.format(*args)
         else:
             return self.CustomFormatter(type, message, args)
+
+    def log_to_local(self, message, mes_type, module):
+        if "windows" in self.platform.lower():
+            subprocess.run(["EVENTCREATE", "/T", "ERROR", "/L", "APPLICATION", "/ID", "100", "/SO", "LOKI", "/D", "LOKI msg_type={} module={} msg={}".format(mes_type, module, message)])
+        else:
+            subprocess.run(["logger", "LOKI msg_type={} module={} msg={}".format(mes_type, module, message)])
 
     def log_to_stdout(self, message, mes_type):
 
@@ -252,3 +265,4 @@ def getSyslogTimestamp():
     date_obj = datetime.datetime.utcnow()
     date_str = date_obj.strftime("%Y%m%dT%H:%M:%SZ")
     return date_str
+

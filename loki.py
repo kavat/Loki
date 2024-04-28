@@ -1,3 +1,5 @@
+#!/usr/bin/python3
+
 # -*- coding: utf-8 -*-
 
 """
@@ -47,6 +49,8 @@ from lib.helpers import *
 from lib.pesieve import PESieve
 from lib.doublepulsar import DoublePulsar
 from lib.vuln_checker import VulnChecker
+
+from subprocess import call
 
 # Platform
 os_platform = ""
@@ -157,6 +161,9 @@ class Loki(object):
             elif os_platform == "macos":
                 self.startExcludes = self.LINUX_PATH_SKIPS_START | self.MOUNTED_DEVICES
 
+        if args.ip:
+            self.startExcludes.remove(args.p)
+
         # Set IOC path
         self.ioc_path = os.path.join(self.app_path, "signature-base/iocs/".replace("/", os.sep))
 
@@ -221,12 +228,20 @@ class Loki(object):
                 skipIt = False
 
                 # Generate a complete path for comparisons
-                completePath = os.path.join(root, dir).lower() + os.sep
+                if args.ip:
+                    completePath = (os.path.join(root, dir).lower() + os.sep).replace("{}".format(args.p), "")
+                else:
+                    completePath = os.path.join(root, dir).lower() + os.sep
+                #logger.log("INFO", "FileScan", "Check %s for skipping" % completePath)
 
                 # Platform specific excludes
                 for skip in self.startExcludes:
                     if completePath.startswith(skip):
-                        logger.log("INFO", "FileScan", "Skipping %s directory [fixed excludes] (try using --force, --allhds or --alldrives)" % skip)
+                        if args.ip:
+                            tipo_dir = "remote"
+                        else:
+                            tipo_dir = "local"
+                        logger.log("INFO", "FileScan", "Skipping %s %s directory [fixed excludes] (try using --force, --allhds or --alldrives)" % (tipo_dir, skip))
                         skipIt = True
 
                 if not skipIt:
@@ -1469,6 +1484,8 @@ def main():
     parser.add_argument('-a', help='Alert score', metavar='alert-level', default=100)
     parser.add_argument('-w', help='Warning score', metavar='warning-level', default=60)
     parser.add_argument('-n', help='Notice score', metavar='notice-level', default=40)
+    parser.add_argument('--ip', help='IP of remote fs to map through SSH', metavar='ip-ssh', default='')
+    parser.add_argument('--userssh', help='User to used if IP of remote fs to map through SSH is passed argument', metavar='user-ssh', default='')
     parser.add_argument('--allhds', action='store_true', help='Scan all local hard drives (Windows only)', default=False)
     parser.add_argument('--alldrives', action='store_true', help='Scan all drives (including network drives and removable media)', default=False)
     parser.add_argument('--printall', action='store_true', help='Print all files that are scanned', default=False)
@@ -1495,11 +1512,31 @@ def main():
     parser.add_argument('--python', action='store', help='Override default python path', default='python')
     parser.add_argument('--nolisten', action='store_true', help='Dot not show listening connections', default=False)
     parser.add_argument('--excludeprocess', action='append', help='Specify an executable name to exclude from scans, can be used multiple times', default=[])
-    parser.add_argument('--force', action='store_true',
-                        help='Force the scan on a certain folder (even if excluded with hard exclude in LOKI\'s code', default=False)
+    parser.add_argument('--force', action='store_true', help='Force the scan on a certain folder (even if excluded with hard exclude in LOKI\'s code', default=False)
     parser.add_argument('--version', action='store_true', help='Shows welcome text and version of loki, then exit', default=False)
+    parser.add_argument('--locallogging', action='store_true',  default='', help='Use local Syslog or Event Viewer for logging')
 
     args = parser.parse_args()
+
+    if args.ip and args.version == False and args.update == False:
+        result = call("which sshfs", shell=True)
+        if result > 0:
+            print("Unable to proceed because sshfs command is not found")
+            sys.exit(1)
+        if args.userssh:
+            if os.path.exists("/remotes/{}".format(args.ip)) == False:
+                rc = call("mkdir -p /remotes/{} && chown {}:{} /remotes/{}".format(args.ip, args.userssh, args.userssh, args.ip), shell=True)
+            rc = call("sudo -u {} sshfs -o allow_other,IdentityFile=/home/{}/.ssh/id_rsa,reconnect,ServerAliveInterval=15,ServerAliveCountMax=3 {}@{}:/ /remotes/{}".format(args.userssh, args.userssh, args.userssh, args.ip, args.ip), shell=True)
+            if rc != 0:
+                print("Unable to mount {} filesystem through SSH with user {}".format(args.ip, args.userssh))
+                sys.exit(1)
+            filename = 'loki_%s_%s.log' % (args.ip, datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))
+            args.p = "/remotes/{}".format(args.ip)
+        else:
+            print("Option --userssh not found, user missed for {}".format(args.ip))
+            sys.exit(1)
+    else:
+        filename = 'loki_%s_%s.log' % (getHostname(os_platform), datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))
 
     if args.syslogtcp and not args.r:
         print('Syslog logging set to TCP with --syslogtcp, but syslog logging not enabled with -r')
@@ -1509,7 +1546,6 @@ def main():
         print('The --logfolder and -l directives are not compatible with --nolog')
         sys.exit(1)
 		
-    filename = 'loki_%s_%s.log' % (getHostname(os_platform), datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))
     if args.logfolder and args.l:
         print('Must specify either log folder with --logfolder, which uses the default filename, or log file with -l. Log file can be an absolute path')
         sys.exit(1)
@@ -1542,7 +1578,7 @@ if __name__ == '__main__':
 
     # Logger
     LokiCustomFormatter = None
-    logger = LokiLogger(args.nolog, args.l, getHostname(os_platform), args.r, int(args.t), args.syslogtcp, args.csv, args.onlyrelevant, args.debug,
+    logger = LokiLogger(args.nolog, args.l, getHostname(os_platform), args.r, int(args.t), args.syslogtcp, args.csv, args.onlyrelevant, args.debug, args.locallogging, 
                         platform=os_platform, caller='main', customformatter=LokiCustomFormatter)
 
     # Show version
@@ -1638,4 +1674,11 @@ if __name__ == '__main__':
     logger.log("INFO", "Results", "Please report false positives via https://github.com/Neo23x0/signature-base")
     logger.log("NOTICE", "Results", "Finished LOKI Scan SYSTEM: %s TIME: %s" % (getHostname(os_platform), getSyslogTimestamp()))
 
+    if args.ip:
+        result = call("ps xa | grep sshfs | grep \"{} \" | grep -v grep | grep -o \"^[0-9 ]\\\+\" | xargs kill -9 && umount -f {}".format(args.p.replace("/",'\/'), args.p), shell=True)
+        if result > 0:
+            print("Error umounting {}".format(args.p))
+            sys.exit(1)
+
 sys.exit(0)
+

@@ -1,15 +1,11 @@
-[![Inactively Maintained](https://img.shields.io/badge/Maintenance%20Level-Inactively%20Maintained-yellowgreen.svg)](https://gist.github.com/cheerfulstoic/d107229326a01ff0f333a1d3476e068d)
-
-## Important Note
-
-This project is only inactively maintained. This means that I merge pull request for bug fixes and issues that can be easily integrated but I don't have the time to add new features or extend existing ones. For years, I've been working on a much more sohpisticated scanner called THOR. There is a free version of THOR Lite available. THOR Lite is faster, more stable, tested in our CI environments and simply the better solution. You can find a comparison of the open source, free and commercial scanner [here](https://www.nextron-systems.com/thor-lite/). I've also started working on a Rust-based version of LOKI called [LOKI 2](https://github.com/Neo23x0/Loki2) but I have no idea when it's in a state that reflects the current feature set of LOKI. A while ago I made a [flow chart](https://twitter.com/cyb3rops/status/1361980419223207936) to help you with the decision which scanner to use.
+This project is forked from https://github.com/Neo23x0/Loki and it is in development state.
 
 ![Logo](/lokiicon.jpg)
 # Loki - Simple IOC and YARA Scanner
 
 Scanner for Simple Indicators of Compromise
 
-Detection is based on four detection methods:
+Detection is based on four detection ways:
 
     1. File Name IOC
        Regex match on full file path/name
@@ -32,17 +28,7 @@ Additional Checks:
 
 The Windows binary is compiled with PyInstaller and should run as x86 application on both x86 and x64 based systems.
 
-## How-To Run LOKI and Analyse the Reports
-
-### Run
-
-  - Download the newest version of LOKI from the [releases](https://github.com/Neo23x0/Loki/releases) section
-  - Extract the program package
-  - Run loki-upgrader.exe on system with Internet access to retrieve the newest signatures
-  - Bring the program folder to a target system that should be scanned: removable media, network share, folder on target system
-  - Open a command line "cmd.exe" as Administrator and run it from there (you can also run LOKI without administrative privileges but some checks will be disabled and relevant objects on disk will not be accessible)
-
-### Reports
+## Reports
 
   - The resulting report will show a GREEN, YELLOW or RED result line.
   - Please analyse the findings yourself by:
@@ -73,7 +59,7 @@ If you want to build it yourself:
                    [--dontwait] [--intense] [--csv] [--onlyrelevant] [--nolog]
                    [--update] [--debug] [--maxworkingset MAXWORKINGSET]
                    [--syslogtcp] [--logfolder log-folder] [--nopesieve]
-                   [--pesieveshellc] [--nolisten]
+                   [--pesieveshellc] [--nolisten] [--ip] [--locallogging]
                    [--excludeprocess EXCLUDEPROCESS] [--force]
     
     Loki - Simple IOC Scanner
@@ -89,6 +75,8 @@ If you want to build it yourself:
       -a alert-level        Alert score
       -w warning-level      Warning score
       -n notice-level       Notice score
+      --ip                  Use IP for associated remote filesystem mounting through SSH
+      --locallogging        Write logs in Syslog/Event Viewer
       --allhds              Scan all local hard drives (Windows only)
       --alldrives           Scan all drives (including network drives and
                             removable media)
