@@ -77,7 +77,7 @@ class LOKIUpdater(object):
         "https://github.com/reversinglabs/reversinglabs-yara-rules/archive/develop.zip"
     ]
     
-    UPDATE_URL_LOKI = "https://api.github.com/repos/Neo23x0/Loki/releases/latest"
+    UPDATE_URL_LOKI = "https://api.github.com/repos/kavat/Loki/releases/latest"
     
     def __init__(self, debug, logger, application_path):
         self.debug = debug
